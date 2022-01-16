@@ -3,16 +3,7 @@
 
 
 // OpenGL Graphics includes
-//#include <GL/glew.h>
-#if defined (__APPLE__) || defined(MACOSX)
-#include <GLUT/glut.h>
-#else
-//#include <GL/freeglut.h>
-#endif
-//#include <GL/glut.h>       // Also included gl.h and glu.h
-
 #include <glad/glad.h>
-
 #include <GLFW/glfw3.h>
 //#include "shader.h"
 
@@ -23,16 +14,8 @@
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-#define IMAGE_ROWS 32     // Texture image rows and columns
-#define IMAGE_COLS 32
 
-// Global Variables
-
-//const unsigned int window_width  = 512;
-//const unsigned int window_height = 512;
 char title[] = "Texture - Checkerboard Pattern";  // Title in windowed mode
-//int windowWidth  = 640;     // Windowed mode's width
-//int windowHeight = 480;     // Windowed mode's height
 int windowPosX   = 50;      // Windowed mode's top-left corner x
 int windowPosY   = 50;      // Windowed mode's top-left corner y
 bool fullScreenMode = true; // Full-screen or windowed mode?
@@ -43,13 +26,14 @@ GLFWwindow* getWindow() {
   return  window;
 }
 
- unsigned int vboID;
- unsigned int vaoID;
- unsigned int eboID; // element.. used for indexed drawing
-//unsigned int texID;
- unsigned int vertexShaderID;
- unsigned int fragmentShaderID;
+unsigned int vboID;
+unsigned int vaoID;
+unsigned int eboID; // element.. used for indexed drawing
+
+unsigned int vertexShaderID;
+unsigned int fragmentShaderID;
 unsigned int shaderProgram; //  final linked version of multiple shaders combined.
+
 unsigned uniform_sampler_ourTexture;
 
 void CHECK_ERROR_GL() {
@@ -57,28 +41,18 @@ void CHECK_ERROR_GL() {
     if(err != GL_NO_ERROR) {
 //        std::cerr << "GL Error: " << gluErrorString(err) << std::endl;
         std::cerr << "GL Error: "  << std::endl;
-
         exit(-1);
     }
 }
 
-
+// functions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
 }
-int   get_checker_texture() {
-    int texDat[64];
-    for (int i = 0; i < 64; ++i)
-        texDat[i] = ((i + (i / 8)) % 2) * 128 + 127;
 
-    return *texDat;
-    //upload to GPU texture
-   // GLuint tex;
-
-}
 
 /////////////////
 /// \brief set_tex_paras
@@ -92,7 +66,16 @@ int   get_checker_texture() {
 /// glTexImage2D specifies the two-dimensional texture for the texture object
 ///  bound to the current texture unit, specified with glActiveTexture.
 ///glTexImage2D specifies the two-dimensional texture for the texture object bound to the current texture unit, specified with glActiveTexture.
+//Note that the type of this texture is an RGBA UNSIGNED_BYTE type. When CUDA surfaces
+//are synchronized with OpenGL textures, the surfaces will be of the same type.
+//They won't know or care about their data types though, for they are all just byte arrays
+//at heart. So be careful to ensure that any CUDA kernel that handles a CUDA surface
+//uses it as an appropriate type. You will see that the update_surface kernel (defined
+//above) treats each pixel as four unsigned bytes along the X-axis: one for red, green, blue,
+//and alpha respectively.
 GLuint set_tex_paras(GLuint tex, int width, int height){
+    glGenTextures(1, &tex);
+
     glBindTexture(GL_TEXTURE_2D, tex);
     {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST        );
@@ -101,20 +84,7 @@ GLuint set_tex_paras(GLuint tex, int width, int height){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
 
-        glTexImage2D(GL_TEXTURE_2D,
-                     0,
-//                     GL_RGB32UI,
-//                    // textureDim.x, textureDim.y, textureDim.z,
-//                     16,16,
-//                     0,
-//                      GL_RGB_INTEGER,
-//                     GL_UNSIGNED_INT,
-                     GL_RGBA32F,
-                     width,height,
-                     0,
-                     GL_RGBA,
-                     GL_FLOAT,
-                     NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA32F, width,height, 0,  GL_RGBA, GL_FLOAT, NULL);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -138,25 +108,18 @@ void checkTex(GLuint *texID,int width, int height)
     }
     glBindTexture(GL_TEXTURE_2D, 0);
 
+    bool fail = false;
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
             printf("%f ", data[i * width + j]);
+            if(data[i * width + j] != 255.0f || data[i] != 0.0f)
+            {
+                std::cerr << "texture doesnt have right values" << std::endl;
+                fail = true;
+            }
         }
         printf("\n");
     }
-
-
-//    bool fail = false;
-//    for(int i = 0; i < numElements; i++)
-//    {
-//       printf("%f",data[i] );
-//        if(data[i] != 1.0f)
-//        {
-//         //   cerr << "Not 1.0f, failed writing to texture" << endl;
-//            fail = true;
-//        }
-//    }
-
     delete [] data;
 }
 const char* vertex_shader_src =
@@ -188,45 +151,6 @@ const char* fragment_shader_src =
     "    FragColor = vec4(vec3(texture(ourTexture, TexCoord).r), 1.);\n"
     "}";
 
-////////////////////////////////////////////////////////////////////////////////
-//! glfw and glad
-////////////////////////////////////////////////////////////////////////////////
-// take the source code for the vertex shader and store it in a const C string
-const char *vertexShaderSource = "#version 460 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    "}\0";
-const char *fragmentShaderSource = "#version 460 core\n"
-    "out vec4 FragColor;\n"
-    "void main()\n"
-    "{\n"
-    "   FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
-    "}\n\0";
-
-float verticesTri[] = {
-    -0.5f, -0.5f, 0.0f,
-     0.5f, -0.5f, 0.0f,
-     0.0f,  0.5f, 0.0f
-};
-const float verticesScreenOverhead[] = {
-//   positions     texture coordinates
-    -1.0f,  1.0f,  0.0f, 1.0f,
-    -1.0f, -1.0f,  0.0f, 0.0f,
-     1.0f, -1.0f,  1.0f, 0.0f,
-
-    -1.0f,  1.0f,  0.0f, 1.0f,
-     1.0f, -1.0f,  1.0f, 0.0f,
-     1.0f,  1.0f,  1.0f, 1.0f
-};
-float verticesOLD[] = {
-     0.5f,  0.5f, 0.0f,  // top right
-     0.5f, -0.5f, 0.0f,  // bottom right
-    -0.5f, -0.5f, 0.0f,  // bottom left
-    -0.5f,  0.5f, 0.0f   // top left
-};
-
 
 
 float vertices[] = {
@@ -239,10 +163,8 @@ float vertices[] = {
 
 
 unsigned int indices[] = {  // note that we start from 0!
-     0, 1, 2, 2, 3, 0
-
-     //0, 1, 3,  // first triangle
-    //1, 2, 3    // second triangle
+     0, 1, 3,  // first triangle
+     1, 2, 3    // second triangle
 };
 
 int check_shader(unsigned int shaderID){
@@ -260,12 +182,8 @@ int check_shader(unsigned int shaderID){
 
 
 
-
-
-int begin_rendering(
-      //  GLFWwindow* window
-      //  unsigned uniform_sampler_ourTexture
-){
+int begin_rendering()
+{
 
     glfwInit();
 
@@ -343,33 +261,6 @@ int begin_rendering(
     glAttachShader(shaderProgram, fragmentShaderID);
     glLinkProgram(shaderProgram);
 
-/*
-    // build and compile our shader zprogram
-    // ------------------------------------
-
-    // absolute path, src: https://stackoverflow.com/questions/229012/getting-absolute-path-of-a-file
-    char filename[] = "../Projects/GoL/visu/callback/fragment_shader.fs";
-    char* path = realpath(filename, NULL);
-    char buf[PATH_MAX]; // PATH_MAX incudes the \0 so +1 is not required
-   /* char *res = realpath("fragment_shader.fs", buf);
-    if(res == NULL){
-        printf("cannot find file with name[%s]\n", res);
-    } else{
-        printf("path[%s]\n", res);
-    }
-    // absolute path
-    char filename2[] = "../../../visu/callback/vertex_shader.vs";
-    char* path2 = realpath(filename, NULL);
-    if(path == NULL){
-        printf("cannot find file with name[%s]\n", filename2);
-    } else{
-        printf("path[%s]\n", path2);
-    }
-    Shader ourShader();
-    free(path);
-*/
-
-
 
     // check for error
     int  success;
@@ -379,13 +270,9 @@ int begin_rendering(
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
       }
-
     glDeleteShader(vertexShaderID);
     glDeleteShader(fragmentShaderID);
 
-    ///////////
-    ///
-    ///
     // Specifies the program object to be queried.
     uniform_sampler_ourTexture = glGetUniformLocation(shaderProgram, "ourTexture");
     int success1;
@@ -400,7 +287,7 @@ int begin_rendering(
     // vbo & VAO & ebo/////////////////////////////////////////7
     glGenVertexArrays(1, &vaoID);
     glGenBuffers(1, &vboID);
-   glGenBuffers(1, &eboID);
+    glGenBuffers(1, &eboID);
 
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     glBindVertexArray(vaoID);
@@ -558,13 +445,7 @@ void initGLTex(GLuint texID) {
                       GL_UNSIGNED_BYTE, // image datatype, Specifies the data type of the texel data.
                    &texID);
                     //&texID);  // Specifies a pointer to the image data in memory.
-       //Note that the type of this texture is an RGBA UNSIGNED_BYTE type. When CUDA surfaces
-       //are synchronized with OpenGL textures, the surfaces will be of the same type.
-       //They won't know or care about their data types though, for they are all just byte arrays
-       //at heart. So be careful to ensure that any CUDA kernel that handles a CUDA surface
-       //uses it as an appropriate type. You will see that the update_surface kernel (defined
-       //above) treats each pixel as four unsigned bytes along the X-axis: one for red, green, blue,
-       //and alpha respectively.
+
 
 
 

@@ -16,41 +16,21 @@
 
 // debug stuff /////////////////////////////////////////////////////////////
 
-void CHECK_CUDA(cudaError_t err) {
-    if(err != cudaSuccess) {
-        printf("%s",cudaGetErrorString(err) );
-
-       // std::cerr << "Error: " << cudaGetErrorString(err) << std::endl;
-       // fprintf(stderr, "Fatal error: %s (%s at %s:%d)\n",
-        //     cudaGetErrorString(err),
-          //  __FILE__, __LINE__);
-       //   fprint(stderr,"h",  __FILE__, __LINE__);
-
-      //  fprintf(stderr, "CUDA CHECK FAILED "  "%s:%d Returned:%d\n", __FILE__, __LINE__, err);
-
-        printf("%s","\n");
-        exit(-1);
-    }
-}
-
-
-
-//Global scope surface to bind to
-void initCUDA();
-
 // how to debug:
 // compute-sanitizer nvcc main.cu
 // compute-sanitizer  --check-api-memory-access 1 nvcc main.cu
 
+
+
+// functions
+void CHECK_CUDA(cudaError_t err);
+void initCUDA();
 void runCudaTest();
 
-
-void CHECK_CUDA(cudaError_t err);
-
 // kernel stuff /////////
-__global__ void firstGen(
-                       cudaSurfaceObject_t inputSurfObj,
-                       int width, int height);
+__global__ void firstGen(cudaSurfaceObject_t inputSurfObj,
+                         int width, int height);
+
 
 __device__ bool inBounds(int x, int y);
 __device__ int countNeighbors(
@@ -62,9 +42,10 @@ __device__ int countNeighbors(
 __global__ void nextGen(
                         cudaSurfaceObject_t inputSurfObj,
                         cudaSurfaceObject_t outputSurfObj,
-                        int width, int height
-/*                        int layer_in,
-                        int layer_out*/);
+                        int width, int height);
+__global__ void printGen(
+                        cudaSurfaceObject_t inputSurfObj,
+                        int width, int height);
 
 // launcher ///
 __host__ void launch_firstGen(cudaSurfaceObject_t  outputSurfObj,int width, int height);
@@ -76,7 +57,16 @@ __host__ void launch_nextGen(
                 int layer_in,
                 int layer_out);
 
+__host__ void launch_printGen(cudaSurfaceObject_t  outputSurfObj, int width, int height,int layer);
+
 ////////////////////////////////////////////////////////////////////////////////
+void CHECK_CUDA(cudaError_t err) {
+    if(err != cudaSuccess) {
+        printf("%s\n",cudaGetErrorString(err) );
+        exit(-1);
+    }
+}
+
 void initCUDA()
 {
     int deviceCount;
@@ -90,10 +80,11 @@ void initCUDA()
     std::cerr << "CUDA SUCCESSFULLY INITIALIZED" << std::endl;
 }
 
-// launcher ////////////////////////////////////////////////////////////////
 
 
-
+///////////////////////////////////////////////////////////////////////////////
+//! LAUNCHER
+///////////////////////////////////////////////////////////////////////////////
 __host__ void launch_firstGen(cudaSurfaceObject_t  outputSurfObj, int width, int height)//cudaArray *cuda_image_array )
 {
 
@@ -135,12 +126,9 @@ __host__ void launch_firstGen(cudaSurfaceObject_t  outputSurfObj, int width, int
 //extern "C"
 
 __host__ void launch_nextGen(
-                cudaSurfaceObject_t inputSurfObj,
-                cudaSurfaceObject_t outputSurfObj,
-              int width, int height)
-
-             //   int layer_in,
-              //  int layer_out)
+                            cudaSurfaceObject_t inputSurfObj,
+                            cudaSurfaceObject_t outputSurfObj,
+                            int width, int height)
 {
 
 
@@ -179,8 +167,10 @@ __host__ void launch_nextGen(
 }
 
 
-// kernel //////////////////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////////////////////////////////
+//! KERNEL
+///////////////////////////////////////////////////////////////////////////////
 __global__ void firstGen(
                        cudaSurfaceObject_t inputSurfObj,
                        int width, int height)
@@ -215,25 +205,9 @@ __global__ void firstGen(
     }
    // surf2DLayeredwrite(element,inputSurfObj, x*sizeof(float4),y,0);
     surf2Dwrite(element, inputSurfObj, x*sizeof(float4), y);
-
-
-  //unsigned int element = (curand(&state) % 2)*255;
-   //
-
-
-  //  surf2Dwrite(element, inputSurfObj, x*sizeof(float4), y);
-    // Write to output surface
-  //  surf2DLayeredwrite(element,inputSurfObj, x*sizeof(unsigned int),y,0);
-
- //  surf2Dwrite(element,inputSurfObj, x*sizeof(int),y);
-
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//! Simple kernel to modify vertex positions in sine wave pattern
-//! @param data  data in global memory
-///////////////////////////////////////////////////////////////////////////////
-// instead of using internal variables to figure out location in array we use pitch
+
 __global__ void nextGen(
                         cudaSurfaceObject_t inputSurfObj,
                         cudaSurfaceObject_t outputSurfObj,
@@ -248,8 +222,6 @@ __global__ void nextGen(
         return;
     if(y >= height)
         return;
-
-
 
 
     // Read from input surface
@@ -273,8 +245,6 @@ __global__ void nextGen(
     else{
         element = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
- //   surf2DLayeredwrite(element,inputSurfObj, x*sizeof(float4),y,layer_out);
-   printf("____%d____",new_state);
 
     surf2Dwrite(element, outputSurfObj,x*sizeof(float4), y);
 
@@ -320,16 +290,9 @@ __device__ int countNeighbors(
 
 
 
-
-
-
-
-
-
-__global__ void check_kernel(
+__global__ void printGen(
                         cudaSurfaceObject_t inputSurfObj,
-                        int width, int height,
-        int layer)
+                        int width, int height)
 {
     // Calculate surface coordinates
      int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -339,23 +302,15 @@ __global__ void check_kernel(
     if(y >= height)
         return;
 
-
-        //uchar4 data;-
-        float4 data;
-
-    //    surf2DLayeredread(&data,inputSurfObj,(x)*sizeof(int),y,layer);
-          surf2Dread(&data,  inputSurfObj, x * sizeof(float4), y);
-
-
-
+    // read from surface and write to console
+    float4 data;
+    surf2Dread(&data,  inputSurfObj, x * sizeof(float4), y);
     printf("-%d", (int)data.x);
-
-
 
 }
 
 
-__host__ void launch_checkKernel(cudaSurfaceObject_t  outputSurfObj, int width, int height,int layer)//cudaArray *cuda_image_array )
+__host__ void launch_printGen(cudaSurfaceObject_t  outputSurfObj, int width, int height,int layer)//cudaArray *cuda_image_array )
 {
 
 
@@ -382,7 +337,7 @@ __host__ void launch_checkKernel(cudaSurfaceObject_t  outputSurfObj, int width, 
    dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
                   (height + threadsperBlock.y - 1) / threadsperBlock.y);
 
-    check_kernel<<<threadsperBlock, numBlocks>>>(outputSurfObj, width, height,layer);
+    printGen<<<threadsperBlock, numBlocks>>>(outputSurfObj, width, height);
 
     // Kernel launches do not return any error code,
     // so cudaPeekAtLastError() or cudaGetLastError() must be called
@@ -394,12 +349,6 @@ __host__ void launch_checkKernel(cudaSurfaceObject_t  outputSurfObj, int width, 
         exit(-1);
     }
 }
-
-
-void launch_init(){
-
-}
-
 
 
 
