@@ -34,6 +34,7 @@ __global__ void firstGen(cudaSurfaceObject_t inputSurfObj,
 
 __device__ bool inBounds(int x, int y);
 __device__ int countNeighbors(
+        const char* pos,
         cudaSurfaceObject_t inputSurfObj,
         int x, int y,
         int width, int height,
@@ -80,6 +81,192 @@ void initCUDA()
     std::cerr << "CUDA SUCCESSFULLY INITIALIZED" << std::endl;
 }
 
+
+
+///////////////////////////////////////////////////////////////////////////////
+//! KERNEL
+///////////////////////////////////////////////////////////////////////////////
+__global__ void firstGen(
+                       cudaSurfaceObject_t inputSurfObj,
+                       int width, int height)
+{
+    // Calculate surface coordinates
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    //Don't do any computation if this thread is outside of the surface bounds.
+    if(x >= width)
+        return;
+    if(y >= height)
+        return;
+
+    bool online;
+    // random
+    curandState custate;
+    curand_init((unsigned long long)clock() + x+y, 0, 0, &custate);
+    online = (curand(&custate) % 2);
+    float rand1 = curand_uniform(&custate);
+    float rand2 = curand_uniform(&custate);
+    float rand3 = curand_uniform(&custate);
+    // block in middle
+//    if(x >= width/2 -10 && x <= width/2 +10 && y >= height/2 -10 && y <= height/2 +10)
+//        online = 1;
+//    else
+//        online = 0;
+
+   // Write to output surface
+   float4 element;
+   if(online){
+        element = make_float4(rand1, rand2, rand3, 1.0f);
+        //element = make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+   }
+   else{
+       element = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+   }
+
+   // surf2DLayeredwrite(element,inputSurfObj, x*sizeof(float4),y,0);
+    surf2Dwrite(element, inputSurfObj, x*sizeof(float4), y);
+}
+
+
+__global__ void nextGen(
+                        cudaSurfaceObject_t inputSurfObj,
+                        cudaSurfaceObject_t outputSurfObj,
+                        int width, int height)
+{
+
+    // Calculate surface coordinates
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    //Don't do any computation if this thread is outside of the surface bounds.
+    if(x >= width)
+        return;
+    if(y >= height)
+        return;
+
+
+    // Read from input surface
+    float4 cell;
+    //surf2DLayeredread(&cell,inputSurfObj,x*sizeof(float4),y,layer_in);
+    surf2Dread(&cell,  inputSurfObj, x*sizeof(float4), y);
+    bool state = cell.w==1.0f ? 1 : 0;
+
+    // find species
+    // todo make better
+    const char* species;
+    // red
+    if(cell.x >= cell.y && cell.x >= cell.z)
+        species = "x";
+    // green
+    else if(cell.y > cell.x && cell.y > cell.z)
+        species = "y";
+    // blue
+    else
+        species = "z";
+
+    //int n_neighbors = 0;
+printf("---%s",species);
+    int n_neighbors = countNeighbors(species,inputSurfObj,x,y, width,height,0);
+
+    //int n_neighbors = countNeighbors(inputSurfObj,x,y, width,height,0);
+    bool new_state =
+       n_neighbors == 3 || (n_neighbors == 2 && state) ? 1 : 0;
+
+
+
+
+
+    // Write to output surface
+    float4 element;
+    if(new_state){
+        // todo make better
+        if(species=="x")
+            element = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
+        else if(species=="y")
+            element = make_float4(0.0f, 1.0f, 0.0f, 1.0f);
+        else
+            element = make_float4(0.0f, 0.0f, 1.0f, 1.0f);
+
+    }
+    else{
+        element = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    surf2Dwrite(element, outputSurfObj,x*sizeof(float4), y);
+
+
+}
+
+
+
+// 8 neighbors are counted
+__device__ int countNeighbors(
+        const char* species,
+        cudaSurfaceObject_t inputSurfObj,
+        int x, int y,
+        int width, int height,
+        int layer_in)
+{
+    int sum = 0;
+
+    for (int k = -1; k < 2; k++)
+    {
+        if(x+k >= width || x+k < 0 ) // check border and skip self todo make better
+         //  return 0;
+           continue;
+
+        for (int l = -1; l < 2; l++)
+        {
+            if(y+l >= height || y+l < 0) // check border and skip self todo make better
+                continue;
+
+            // Read from input surface
+            //printf("---%s",pos);
+            float4 cell;
+            surf2Dread(&cell,  inputSurfObj, (x+k)*sizeof(float4), y+l);
+
+            int neighbor;
+            // todo make better
+            if(species=="x")
+                 neighbor = cell.x>=.33f ? 1 : 0;
+
+            else if(species=="y")
+                 neighbor = cell.y>=.33f ? 1 : 0;
+
+            else
+                 neighbor = cell.z>=.33f ? 1 : 0;
+
+
+
+            sum += neighbor;
+        }
+    }
+    // Read from input surface
+
+    sum -= 1; // substarc self
+    return sum;
+}
+
+
+
+
+__global__ void printGen(
+                        cudaSurfaceObject_t inputSurfObj,
+                        int width, int height)
+{
+    // Calculate surface coordinates
+     int x = blockIdx.x * blockDim.x + threadIdx.x;
+     int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if(x >= width)
+        return;
+    if(y >= height)
+        return;
+
+    // read from surface and write to console
+    float4 data;
+    surf2Dread(&data,  inputSurfObj, x * sizeof(float4), y);
+    printf("-%d", (int)data.w);
+
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -164,167 +351,6 @@ __host__ void launch_nextGen(
         std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
         exit(-1);
     }
-}
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-//! KERNEL
-///////////////////////////////////////////////////////////////////////////////
-///
-///
-///
-///
-///
-///
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-//! KERNEL
-///////////////////////////////////////////////////////////////////////////////
-__global__ void firstGen(
-                       cudaSurfaceObject_t inputSurfObj,
-                       int width, int height)
-{
-    // Calculate surface coordinates
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    //Don't do any computation if this thread is outside of the surface bounds.
-    if(x >= width)
-        return;
-    if(y >= height)
-        return;
-
-    bool online;
-    // random
-    curandState custate;
-    curand_init((unsigned long long)clock() + x+y, 0, 0, &custate);
-    // block in middle
-    if(x >= width/2 -10 && x <= width/2 +10 && y >= height/2 -10 && y <= height/2 +10)
-        online = 1;
-    else
-        online = 0;
-
-   online = (curand(&custate) % 2);
-
-    float4 element;
-    if(online){
-         element = make_float4(1.0f, 1.0f, 1.0f, 1.0f);
-    }
-    else{
-         element = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-    }
-   // surf2DLayeredwrite(element,inputSurfObj, x*sizeof(float4),y,0);
-    surf2Dwrite(element, inputSurfObj, x*sizeof(float4), y);
-}
-
-
-__global__ void nextGen(
-                        cudaSurfaceObject_t inputSurfObj,
-                        cudaSurfaceObject_t outputSurfObj,
-                        int width, int height)
-{
-
-    // Calculate surface coordinates
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    //Don't do any computation if this thread is outside of the surface bounds.
-    if(x >= width)
-        return;
-    if(y >= height)
-        return;
-
-
-    // Read from input surface
-    float4 cell;
-    //surf2DLayeredread(&cell,inputSurfObj,x*sizeof(float4),y,layer_in);
-    surf2Dread(&cell,  inputSurfObj, x*sizeof(float4), y);
-    bool state = cell.w==1.0f ? 1 : 0;
-    int n_neighbors = countNeighbors( inputSurfObj,x,y, width,height,0);
-    bool new_state =
-       n_neighbors == 3 || (n_neighbors == 2 && state) ? 1 : 0;
-
-    curandState custate;
-    curand_init((unsigned long long)clock() + x, 0, 0, &custate);
-    bool online = (curand(&custate) % 2);
-    float rand1 = curand_uniform(&custate);
-    float rand2 = curand_uniform(&custate);
-    float rand3 = curand_uniform(&custate);
-
-
-    // Write to output surface
-    float4 element;
-    if(new_state){
-         element = make_float4(rand1, rand2, rand3, 1.0f);
-         //element = make_float4(1.0f, 1.0f, 1.0f, 1.0f);
-    }
-    else{
-        element = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-    }
-
-    surf2Dwrite(element, outputSurfObj,x*sizeof(float4), y);
-
-
-}
-
-
-
-// 8 neighbors are counted
-__device__ int countNeighbors(
-        cudaSurfaceObject_t inputSurfObj,
-        int x, int y,
-        int width, int height,
-        int layer_in)
-{
-    int sum = 0;
-
-    for (int k = -1; k < 2; k++)
-    {
-        if(x+k >= width || x+k < 0 ) // check border and skip self todo make better
-         //  return 0;
-           continue;
-
-        for (int l = -1; l < 2; l++)
-        {
-            if(y+l >= height || y+l < 0) // check border and skip self todo make better
-                continue;
-
-            // Read from input surface
-            float4 cell;
-            surf2Dread(&cell,  inputSurfObj, (x+k)*sizeof(float4), y+l);
-            int neighbor = cell.w==1.0f ? 1 : 0;
-            sum += neighbor;
-        }
-    }
-    // Read from input surface
-    float4 cell;
-    surf2Dread(&cell,  inputSurfObj, x*sizeof(float4), y);
-    int neighbor = cell.w==1.0f ? 1 : 0;
-    sum -= neighbor;
-    return sum;
-}
-
-
-
-
-__global__ void printGen(
-                        cudaSurfaceObject_t inputSurfObj,
-                        int width, int height)
-{
-    // Calculate surface coordinates
-     int x = blockIdx.x * blockDim.x + threadIdx.x;
-     int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if(x >= width)
-        return;
-    if(y >= height)
-        return;
-
-    // read from surface and write to console
-    float4 data;
-    surf2Dread(&data,  inputSurfObj, x * sizeof(float4), y);
-    printf("-%d", (int)data.w);
-
 }
 
 
