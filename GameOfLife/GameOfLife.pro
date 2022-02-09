@@ -19,6 +19,7 @@ HEADERS += \ shader.h \
                 cuda_stuff.cuh \
     interop_stuff.cuh \
     opengl_stuff.h \
+    shader_stuff.h
 
 
 

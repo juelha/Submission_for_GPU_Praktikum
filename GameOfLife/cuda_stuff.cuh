@@ -171,6 +171,18 @@ __host__ void launch_nextGen(
 ///////////////////////////////////////////////////////////////////////////////
 //! KERNEL
 ///////////////////////////////////////////////////////////////////////////////
+///
+///
+///
+///
+///
+///
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//! KERNEL
+///////////////////////////////////////////////////////////////////////////////
 __global__ void firstGen(
                        cudaSurfaceObject_t inputSurfObj,
                        int width, int height)
@@ -198,7 +210,7 @@ __global__ void firstGen(
 
     float4 element;
     if(online){
-         element = make_float4(255.0f, 255.0f, 255.0f, 255.0f);
+         element = make_float4(1.0f, 1.0f, 1.0f, 1.0f);
     }
     else{
          element = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -228,7 +240,7 @@ __global__ void nextGen(
     float4 cell;
     //surf2DLayeredread(&cell,inputSurfObj,x*sizeof(float4),y,layer_in);
     surf2Dread(&cell,  inputSurfObj, x*sizeof(float4), y);
-    bool state = cell.x==255.0f ? 1 : 0;
+    bool state = cell.w==1.0f ? 1 : 0;
     int n_neighbors = countNeighbors( inputSurfObj,x,y, width,height,0);
     bool new_state =
        n_neighbors == 3 || (n_neighbors == 2 && state) ? 1 : 0;
@@ -236,11 +248,16 @@ __global__ void nextGen(
     curandState custate;
     curand_init((unsigned long long)clock() + x, 0, 0, &custate);
     bool online = (curand(&custate) % 2);
+    float rand1 = curand_uniform(&custate);
+    float rand2 = curand_uniform(&custate);
+    float rand3 = curand_uniform(&custate);
+
 
     // Write to output surface
     float4 element;
     if(new_state){
-         element = make_float4(255.0f, 255.0f, 255.0f, 255.0f);
+         element = make_float4(rand1, rand2, rand3, 1.0f);
+         //element = make_float4(1.0f, 1.0f, 1.0f, 1.0f);
     }
     else{
         element = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -276,17 +293,18 @@ __device__ int countNeighbors(
             // Read from input surface
             float4 cell;
             surf2Dread(&cell,  inputSurfObj, (x+k)*sizeof(float4), y+l);
-            int neighbor = cell.x==255.0f ? 1 : 0;
+            int neighbor = cell.w==1.0f ? 1 : 0;
             sum += neighbor;
         }
     }
     // Read from input surface
     float4 cell;
     surf2Dread(&cell,  inputSurfObj, x*sizeof(float4), y);
-    int neighbor = cell.x==255.0f ? 1 : 0;
+    int neighbor = cell.w==1.0f ? 1 : 0;
     sum -= neighbor;
     return sum;
 }
+
 
 
 
@@ -305,7 +323,7 @@ __global__ void printGen(
     // read from surface and write to console
     float4 data;
     surf2Dread(&data,  inputSurfObj, x * sizeof(float4), y);
-    printf("-%d", (int)data.x);
+    printf("-%d", (int)data.w);
 
 }
 

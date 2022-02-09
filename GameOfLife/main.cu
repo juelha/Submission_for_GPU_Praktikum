@@ -56,7 +56,7 @@ int main(int argc, char** argv)
         //so the texture has the same data as the newly written surface.
         // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE.html#group__CUDART__DEVICE_1g10e20b05a95f638a4071a655503df25d
         CHECK_CUDA(cudaDeviceSynchronize());
-        launch_printGen(surfObj[i%2],width,height, i%2);
+      //  launch_printGen(surfObj[i%2],width,height, i%2);
 
         rendering_loop(texID[i%2]);
 

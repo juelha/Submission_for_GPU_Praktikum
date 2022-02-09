@@ -10,6 +10,8 @@
 // includes, system
 #include <iostream>
 
+#include "shader_stuff.h" // custom written for readability
+
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -30,9 +32,7 @@ unsigned int vboID;
 unsigned int vaoID;
 unsigned int eboID; // element.. used for indexed drawing
 
-unsigned int vertexShaderID;
-unsigned int fragmentShaderID;
-unsigned int shaderProgram; //  final linked version of multiple shaders combined.
+unsigned int shaderProgram;
 
 unsigned uniform_sampler_ourTexture;
 
@@ -122,43 +122,26 @@ void checkTex(GLuint *texID,int width, int height)
     }
     delete [] data;
 }
-const char* vertex_shader_src =
-        "#version 460 core\n"
-        "layout (location = 0) in vec3 aPos;\n"
-        "layout (location = 1) in vec3 aColor;\n"
-        "layout (location = 2) in vec2 aTexCoord;\n"
-        "\n"
-        "out vec3 ourColor;\n"
-        "out vec2 TexCoord;\n"
-        "\n"
-        "void main()\n"
-        "{\n"
-        "    gl_Position = vec4(aPos, 1.0);\n"
-        "    ourColor = aColor;\n"
-        "    TexCoord = aTexCoord;\n"
-        "}";
-const char* fragment_shader_src =
-    "#version 460 core\n"
-    "out vec4 FragColor;\n"
-    "\n"
-    "in vec3 ourColor;\n"
-    "in vec2 TexCoord;\n"
-    "\n"
-    "uniform sampler2D ourTexture;\n"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "    FragColor = vec4(vec3(texture(ourTexture, TexCoord).r), 1.);\n"
-    "}";
 
 
+
+
+
+
+//float vertices[] = {
+//    // positions          // colors           // texture coords
+//     1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+//     1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+//    -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
+//    -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left
+//};
 
 float vertices[] = {
     // positions          // colors           // texture coords
-     1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-     1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-    -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
-    -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left
+     1.0f,  1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
+     1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   1.0f, 0.0f,   // bottom right
+    -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   0.0f, 0.0f,   // bottom left
+    -1.0f,  1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   0.0f, 1.0f    // top left
 };
 
 
@@ -167,24 +150,9 @@ unsigned int indices[] = {  // note that we start from 0!
      1, 2, 3    // second triangle
 };
 
-int check_shader(unsigned int shaderID){
-    int  success;
-    char infoLog[512];
-    glGetShaderiv(shaderID, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
-        glGetShaderInfoLog(shaderID, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-        return -1;
-    }
-    return 0;
-}
 
 
-
-int begin_rendering()
-{
-
+int rendering_init(){
     glfwInit();
 
     //configure GLFW
@@ -236,60 +204,30 @@ int begin_rendering()
 
     std::cerr << "OPENGL SUCCESSFULLY INITIALIZED" << std::endl;
 
-    // shaders ///////////////////////////////////////7
-
-    // vertex shader
-    vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-    // attach the shader source code to the shader object and compile the shader
-    glShaderSource(vertexShaderID, 1, &vertex_shader_src, NULL);
-    glCompileShader(vertexShaderID);
-    // check for error
-    check_shader(vertexShaderID);
-
-    // fragment shader
-    fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-    // attach the shader source code to the shader object and compile the shader
-    glShaderSource(fragmentShaderID, 1, &fragment_shader_src, NULL);
-    glCompileShader(fragmentShaderID);
-    // check for error
-    check_shader(fragmentShaderID);
-
-    // shader program ////////////////////////////////////////
-    shaderProgram = glCreateProgram();
-    // attach and link
-    glAttachShader(shaderProgram, vertexShaderID);
-    glAttachShader(shaderProgram, fragmentShaderID);
-    glLinkProgram(shaderProgram);
+return 0;
+}
 
 
-    // check for error
-    int  success;
-    char infoLog[512];
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if(!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-      }
-    glDeleteShader(vertexShaderID);
-    glDeleteShader(fragmentShaderID);
 
+int begin_rendering()
+{
+
+    rendering_init();
+
+    shaderProgram = shader_init();
     // Specifies the program object to be queried.
     uniform_sampler_ourTexture = glGetUniformLocation(shaderProgram, "ourTexture");
-    int success1;
-    char infoLog1[512];
+    check_shaderProgram(shaderProgram);
 
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success1);
-    if(!success1) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog1);
-        printf("%s\n", infoLog1);
-    }
 
     // vbo & VAO & ebo/////////////////////////////////////////7
     glGenVertexArrays(1, &vaoID);
     glGenBuffers(1, &vboID);
     glGenBuffers(1, &eboID);
 
-    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    // bind the Vertex Array Object first,
+    // then bind and set vertex buffer(s),
+    // and then configure vertex attributes(s).
     glBindVertexArray(vaoID);
 
     // bind to buffer type
@@ -300,14 +238,14 @@ int begin_rendering()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboID);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    // tell  OpenGL how it should interpret the vertex data before rendering.
-    //Each vertex attribute takes its data from memory managed by a VBO (cur bound)
+    // tell OpenGL how it should interpret the vertex data before rendering.
+    //Each vertex attribute takes its data from memory managed by the VBO (cur bound)
     // position attribute
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+  // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+   //glEnableVertexAttribArray(1);
     // texture coord attribute
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
@@ -326,11 +264,7 @@ int begin_rendering()
   //  glBindVertexArray(0);
 
     // uncomment this call to draw in wireframe polygons.
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-
-
-
+   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 return 0;
 
