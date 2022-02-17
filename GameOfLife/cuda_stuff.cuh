@@ -35,7 +35,8 @@ __global__ void firstGen(cudaSurfaceObject_t inputSurfObj,
 __device__ bool inBounds(int x, int y);
 __device__ int countNeighbors(
         const char* pos,
-        cudaSurfaceObject_t inputSurfObj,
+        cudaSurfaceObject_t &inputSurfObj,
+        cudaSurfaceObject_t &outputSurfObj,
         int x, int y,
         int width, int height,
         int layer_in);
@@ -165,7 +166,8 @@ __global__ void nextGen(
 
     //int n_neighbors = 0;
 printf("---%s",species);
-    int n_neighbors = countNeighbors(species,inputSurfObj,x,y, width,height,0);
+//                                         pass by value , pass by ref bc we change
+    int n_neighbors = countNeighbors(species,inputSurfObj,outputSurfObj, x,y, width,height,0);
 
     //int n_neighbors = countNeighbors(inputSurfObj,x,y, width,height,0);
     bool new_state =
@@ -196,12 +198,22 @@ printf("---%s",species);
 
 }
 
+__device__ void eat(
+        cudaSurfaceObject_t &inputSurfObj,
+        cudaSurfaceObject_t &outputSurfObj,
+        int x, int y)
+{
+    float4 rip = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 
+    surf2Dwrite(rip, inputSurfObj,x*sizeof(float4), y);
+
+}
 
 // 8 neighbors are counted
 __device__ int countNeighbors(
         const char* species,
-        cudaSurfaceObject_t inputSurfObj,
+        cudaSurfaceObject_t &inputSurfObj,
+        cudaSurfaceObject_t &outputSurfObj,
         int x, int y,
         int width, int height,
         int layer_in)
@@ -221,28 +233,58 @@ __device__ int countNeighbors(
 
             // Read from input surface
             //printf("---%s",pos);
-            float4 cell;
-            surf2Dread(&cell,  inputSurfObj, (x+k)*sizeof(float4), y+l);
+            float4 neighbor;
+            surf2Dread(&neighbor,  inputSurfObj, (x+k)*sizeof(float4), y+l);
 
-            int neighbor;
+            // friendly
+            int neigh;
+            bool kill;
             // todo make better
             if(species=="x")
-                 neighbor = cell.x>=.33f ? 1 : 0;
+            {
+                 sum += neighbor.x>=.33f ? 1 : 0;
+                 kill = neighbor.y>=.33f ? 1 : 0; // red kills green
 
+
+                // sum = 2;
+                // continue;
+
+
+            }
             else if(species=="y")
-                 neighbor = cell.y>=.33f ? 1 : 0;
-
+            {
+                 sum += neighbor.y>=.33f ? 1 : 0;
+               //  kill = neighbor.z>=.33f ? 1 : 0; // green kills blue
+            }
             else
-                 neighbor = cell.z>=.33f ? 1 : 0;
+            {
+                 sum += neighbor.z>=.33f ? 1 : 0;
+            }
+                 // neighbor = cell.w>=.33f ? 1 : 0;
 
 
 
-            sum += neighbor;
+            // not friendly
+            if(kill){
+
+
+
+                // KILL
+                float4 rip = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                surf2Dwrite(rip, inputSurfObj, (x+k)*sizeof(float4), y+l);
+                surf2Dwrite(rip, outputSurfObj, (x+k)*sizeof(float4), y+l);
+
+              //  sum = 4;
+                continue;
+
+            }
+
+
         }
     }
     // Read from input surface
 
-    sum -= 1; // substarc self
+    sum -= 1; // substarc self WAIT WE DONT KNOW IF SELF IS ALIVE WABAIÖKGJAÖKREJNAÖ
     return sum;
 }
 
