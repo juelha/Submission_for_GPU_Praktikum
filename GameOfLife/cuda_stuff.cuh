@@ -159,7 +159,7 @@ __global__ void nextGen(
  /////////////////////////////////////////////////////////////////////////////////////7
 
     int n_neighbors = 0;
-    bool kill;
+    bool kill = 0;
 
     for (int k = -1; k < 2; k++)
     {
@@ -177,23 +177,23 @@ __global__ void nextGen(
             surf2Dread(&neighbor, inputSurfObj, (x+k)*sizeof(float4), y+l);
 
             // todo make better
-            if(cell.x >= cell.y && cell.x >= cell.z)
+            if(cell.x > cell.y && cell.x > cell.z)
             {
                  n_neighbors += neighbor.x>=.33f ? 1 : 0;
                  kill = neighbor.y>=.33f ? 1 : 0; // red kills green
             }
-            else if(cell.y > cell.x && cell.y > cell.z)
+            else if(cell.y >= cell.x && cell.y >= cell.z)
             {
                  n_neighbors += neighbor.y>=.33f ? 1 : 0;
                  kill = neighbor.z>=.33f ? 1 : 0; // green kills blue
+                 if (kill)
+                    printf("%s","tru");
             }
             else if(cell.z >= cell.x && cell.z >= cell.y)
             {
                  n_neighbors += neighbor.z>=.33f ? 1 : 0;
+
             }
-                 // neighbor = cell.w>=.33f ? 1 : 0;
-
-
 
             // not friendly
             if(kill){
@@ -223,7 +223,7 @@ __global__ void nextGen(
         // todo make better
         if(cell.x >= cell.y && cell.x >= cell.z)
             element = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
-        else if(cell.y > cell.x && cell.y > cell.z)
+        else if(cell.y >= cell.x && cell.y >= cell.z)
             element = make_float4(0.0f, 1.0f, 0.0f, 1.0f);
         else if(cell.z >= cell.x && cell.z >= cell.y)
             element = make_float4(0.0f, 0.0f, 1.0f, 1.0f);
