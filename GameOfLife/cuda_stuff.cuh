@@ -151,27 +151,67 @@ __global__ void nextGen(
     surf2Dread(&cell,  inputSurfObj, x*sizeof(float4), y);
     bool state = cell.w==1.0f ? 1 : 0;
 
-    // find species
-    // todo make better
-    const char* species;
-    // red
-    if(cell.x >= cell.y && cell.x >= cell.z)
-        species = "x";
-    // green
-    else if(cell.y > cell.x && cell.y > cell.z)
-        species = "y";
-    // blue
-    else
-        species = "z";
 
     //int n_neighbors = 0;
-printf("---%s",species);
+//printf("---%s",species);
 //                                         pass by value , pass by ref bc we change
-    int n_neighbors = countNeighbors(species,inputSurfObj,outputSurfObj, x,y, width,height,0);
+    //int n_neighbors = countNeighbors(species,inputSurfObj,outputSurfObj, x,y, width,height,0);
+ /////////////////////////////////////////////////////////////////////////////////////7
 
+    int n_neighbors = 0;
+    bool kill;
+
+    for (int k = -1; k < 2; k++)
+    {
+        if(x+k >= width || x+k < 0 )
+           continue;
+        for (int l = -1; l < 2; l++)
+        {
+            if(y+l >= height || y+l < 0)
+                continue;
+            if(k==0 && l==0) // skip self todo make better
+                continue;
+
+            // Read from input surface
+            float4 neighbor;
+            surf2Dread(&neighbor, inputSurfObj, (x+k)*sizeof(float4), y+l);
+
+            // todo make better
+            if(cell.x >= cell.y && cell.x >= cell.z)
+            {
+                 n_neighbors += neighbor.x>=.33f ? 1 : 0;
+                 kill = neighbor.y>=.33f ? 1 : 0; // red kills green
+            }
+            else if(cell.y > cell.x && cell.y > cell.z)
+            {
+                 n_neighbors += neighbor.y>=.33f ? 1 : 0;
+                 kill = neighbor.z>=.33f ? 1 : 0; // green kills blue
+            }
+            else if(cell.z >= cell.x && cell.z >= cell.y)
+            {
+                 n_neighbors += neighbor.z>=.33f ? 1 : 0;
+            }
+                 // neighbor = cell.w>=.33f ? 1 : 0;
+
+
+
+            // not friendly
+            if(kill){
+                // KILL
+                float4 rip = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                surf2Dwrite(rip, inputSurfObj, (x+k)*sizeof(float4), y+l);
+                surf2Dwrite(rip, outputSurfObj, (x+k)*sizeof(float4), y+l);
+                continue;
+            }
+        }
+    }
+
+
+
+    ///////////////////////////////////////////////////////////////////////////
     //int n_neighbors = countNeighbors(inputSurfObj,x,y, width,height,0);
     bool new_state =
-       n_neighbors == 3 || (n_neighbors == 2 && state) ? 1 : 0;
+       n_neighbors == 3 || (n_neighbors == 2 && state) || kill ? 1 : 0;
 
 
 
@@ -181,11 +221,11 @@ printf("---%s",species);
     float4 element;
     if(new_state){
         // todo make better
-        if(species=="x")
+        if(cell.x >= cell.y && cell.x >= cell.z)
             element = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
-        else if(species=="y")
+        else if(cell.y > cell.x && cell.y > cell.z)
             element = make_float4(0.0f, 1.0f, 0.0f, 1.0f);
-        else
+        else if(cell.z >= cell.x && cell.z >= cell.y)
             element = make_float4(0.0f, 0.0f, 1.0f, 1.0f);
 
     }
