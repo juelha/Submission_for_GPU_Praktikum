@@ -4,12 +4,11 @@
 
 #include <iostream>
 
-#include <cuda_runtime.h>
-#include <cuda_gl_interop.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
 #include "curand_kernel.h"
 #include "device_launch_parameters.h"
 
@@ -22,44 +21,6 @@
 
 
 
-// functions
-void CHECK_CUDA(cudaError_t err);
-void initCUDA();
-void runCudaTest();
-
-// kernel stuff /////////
-__global__ void firstGen(cudaSurfaceObject_t inputSurfObj,
-                         int width, int height);
-
-
-__device__ bool inBounds(int x, int y);
-__device__ int countNeighbors(
-        const char* pos,
-        cudaSurfaceObject_t &inputSurfObj,
-        cudaSurfaceObject_t &outputSurfObj,
-        int x, int y,
-        int width, int height,
-        int layer_in);
-
-__global__ void nextGen(
-                        cudaSurfaceObject_t inputSurfObj,
-                        cudaSurfaceObject_t outputSurfObj,
-                        int width, int height);
-__global__ void printGen(
-                        cudaSurfaceObject_t inputSurfObj,
-                        int width, int height);
-
-// launcher ///
-__host__ void launch_firstGen(cudaSurfaceObject_t  outputSurfObj,int width, int height);
-
-__host__ void launch_nextGen(
-                cudaSurfaceObject_t inputSurfObj,
-              //  cudaSurfaceObject_t outputSurfObj,
-              int width, int height,
-                int layer_in,
-                int layer_out);
-
-__host__ void launch_printGen(cudaSurfaceObject_t  outputSurfObj, int width, int height,int layer);
 
 ////////////////////////////////////////////////////////////////////////////////
 void CHECK_CUDA(cudaError_t err) {
@@ -67,6 +28,27 @@ void CHECK_CUDA(cudaError_t err) {
         printf("%s\n",cudaGetErrorString(err) );
         exit(-1);
     }
+}
+
+int CHECK_KERNEL(){
+    // to ensure that any error returned by cudaPeekAtLastError() or cudaGetLastError()
+    // does not originate from calls prior to the kernel launch, one has to make sure
+    // that the runtime error variable is set to cudaSuccess just before the kernel launch,
+    // for example, by calling cudaGetLastError() just before the kernel launch
+    // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#error-checking
+
+    cudaError_t err;
+       err = cudaGetLastError();
+    if(err != cudaSuccess) {
+        std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
+       // exit(-1);
+
+        return -1;
+    }
+    // Kernel launches do not return any error code,
+    // so cudaPeekAtLastError() or cudaGetLastError() must be called
+    // just after the kernel launch to retrieve any pre-launch errors.
+    return 0;
 }
 
 void initCUDA()
@@ -87,9 +69,9 @@ void initCUDA()
 ///////////////////////////////////////////////////////////////////////////////
 //! KERNEL
 ///////////////////////////////////////////////////////////////////////////////
-__global__ void firstGen(
-                       cudaSurfaceObject_t inputSurfObj,
-                       int width, int height)
+///
+
+__global__ void firstGen(cudaSurfaceObject_t inputSurfObj, int width, int height)
 {
     // Calculate surface coordinates
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -108,11 +90,6 @@ __global__ void firstGen(
     float rand1 = curand_uniform(&custate);
     float rand2 = curand_uniform(&custate);
     float rand3 = curand_uniform(&custate);
-    // block in middle
-//    if(x >= width/2 -10 && x <= width/2 +10 && y >= height/2 -10 && y <= height/2 +10)
-//        online = 1;
-//    else
-//        online = 0;
 
    // Write to output surface
    float4 element;
@@ -128,11 +105,15 @@ __global__ void firstGen(
     surf2Dwrite(element, inputSurfObj, x*sizeof(float4), y);
 }
 
-
-__global__ void nextGen(
-                        cudaSurfaceObject_t inputSurfObj,
-                        cudaSurfaceObject_t outputSurfObj,
-                        int width, int height)
+///
+/// \brief   nextGen
+/// \details
+/// \param   inputSurfObj
+/// \param   outputSurfObj
+/// \param   width
+/// \param   height
+///
+__global__ void nextGen(cudaSurfaceObject_t inputSurfObj, cudaSurfaceObject_t outputSurfObj, int width, int height)
 {
 
     // Calculate surface coordinates
@@ -152,13 +133,12 @@ __global__ void nextGen(
     bool state = cell.w==1.0f ? 1 : 0;
 
 
-    //int n_neighbors = 0;
-//printf("---%s",species);
-//                                         pass by value , pass by ref bc we change
-    //int n_neighbors = countNeighbors(species,inputSurfObj,outputSurfObj, x,y, width,height,0);
- /////////////////////////////////////////////////////////////////////////////////////7
 
-    int n_neighbors = 0;
+    float n_neighbors = 0;
+    float n_neighbors_green = 0;
+
+    float n_neighbors_blue = 0;
+
     bool kill = 0;
 
     for (int k = -1; k < 2; k++)
@@ -177,30 +157,53 @@ __global__ void nextGen(
             surf2Dread(&neighbor, inputSurfObj, (x+k)*sizeof(float4), y+l);
 
             // todo make better
-            if(cell.x > cell.y && cell.x > cell.z)
-            {
-                 n_neighbors += neighbor.x>=.33f ? 1 : 0;
-                 kill = neighbor.y>=.33f ? 1 : 0; // red kills green
-            }
-            else if(cell.y >= cell.x && cell.y >= cell.z)
-            {
-                 n_neighbors += neighbor.y>=.33f ? 1 : 0;
-                 kill = neighbor.z>=.33f ? 1 : 0; // green kills blue
-                 if (kill)
-                    printf("%s","tru");
-            }
-            else if(cell.z >= cell.x && cell.z >= cell.y)
-            {
-                 n_neighbors += neighbor.z>=.33f ? 1 : 0;
 
+
+              if(cell.x > cell.y && cell.x > cell.z)
+          //   if(cell.x > .50f)
+
+             {
+                  //n_neighbors += neighbor.x  >  .33f  ? .33f : 0;
+                 n_neighbors += neighbor.x;//  >  .50f  ? .33f : 0;
+
+                 // printf("---%f",neighbor.y);
+
+
+             }
+             else if(cell.y > cell.x && cell.y > cell.z)
+         //  else if(cell.y > .50f)
+
+           {
+                n_neighbors += neighbor.y;// > .50f ? .33f : 0;
+                kill = (neighbor.z >= neighbor.x && neighbor.z >= neighbor.y)  ? 1 : 0; // red kills green
+                if(kill){
+                    float4 rip = make_float4(0.0f, 1.0f, 0.0f, 1.0f);
+                    surf2Dwrite(rip, inputSurfObj, (x+k)*sizeof(float4), y+l);
+                    surf2Dwrite(rip, outputSurfObj, (x+k)*sizeof(float4), y+l);
+                }
+
+           }
+
+            else if(cell.z > cell.x && cell.z > cell.y)
+           //else if(cell.z > .50f)
+
+            {
+                 n_neighbors += neighbor.z;// > .50f ? .33f : 0;
+                 kill = (neighbor.x >= neighbor.y && neighbor.x >= neighbor.z) ? 1 : 0; // red kills green
+                 if(kill){
+                     float4 rip = make_float4(0.0f, 0.0f, 1.0f, 1.0f);
+                     surf2Dwrite(rip, inputSurfObj, (x+k)*sizeof(float4), y+l);
+                     surf2Dwrite(rip, outputSurfObj, (x+k)*sizeof(float4), y+l);
+                 }
             }
+
+
 
             // not friendly
             if(kill){
                 // KILL
-                float4 rip = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-                surf2Dwrite(rip, inputSurfObj, (x+k)*sizeof(float4), y+l);
-                surf2Dwrite(rip, outputSurfObj, (x+k)*sizeof(float4), y+l);
+              //  printf("%s","tru");
+
                 continue;
             }
         }
@@ -211,22 +214,40 @@ __global__ void nextGen(
     ///////////////////////////////////////////////////////////////////////////
     //int n_neighbors = countNeighbors(inputSurfObj,x,y, width,height,0);
     bool new_state =
-       n_neighbors == 3 || (n_neighbors == 2 && state) || kill ? 1 : 0;
+     //  n_neighbors == 3 || (n_neighbors == 2 && state) || kill ? 1 : 0;
 
-
-
+      (   n_neighbors <= 3.4f && n_neighbors >= 2.5f) || (   n_neighbors <= 2.4f && n_neighbors >= 1.5f && state)  ? 1 : 0;
+    //printf("%f\n",n_neighbors);
 
 
     // Write to output surface
     float4 element;
+    // random
+    bool mutate;
+    curandState custate;
+    curand_init((unsigned long long)clock() + x+y, 0, 0, &custate);
+    mutate = (curand(&custate) % 2);
+
+    float rand1 = curand_uniform(&custate);
+    float rand2 = curand_uniform(&custate);
+
     if(new_state){
         // todo make better
-        if(cell.x >= cell.y && cell.x >= cell.z)
-            element = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
-        else if(cell.y >= cell.x && cell.y >= cell.z)
-            element = make_float4(0.0f, 1.0f, 0.0f, 1.0f);
-        else if(cell.z >= cell.x && cell.z >= cell.y)
-            element = make_float4(0.0f, 0.0f, 1.0f, 1.0f);
+        if(cell.x > cell.y && cell.x > cell.z)
+            element = make_float4(1.0f, 0, 0, 1.0f);
+
+        else if(cell.y > cell.x && cell.y > cell.z)
+            element = make_float4(0, 1.0f, 0, 1.0f);
+
+        else if(cell.z > cell.x && cell.z > cell.y)
+            element = make_float4(0, 0, 1.0f, 1.0f);
+//        if(cell.x > .50f)
+//            element = make_float4(1.0f, rand1*mutate, rand2*mutate, 1.0f);
+//        else if(cell.y >.50f)
+//            element = make_float4(rand1*mutate, 1.0f, rand2*mutate, 1.0f);
+//        else if(cell.z >.50f)
+//            element = make_float4(rand1*mutate, rand2*mutate, 1.0f, 1.0f);
+
 
     }
     else{
@@ -249,91 +270,10 @@ __device__ void eat(
 
 }
 
-// 8 neighbors are counted
-__device__ int countNeighbors(
-        const char* species,
-        cudaSurfaceObject_t &inputSurfObj,
-        cudaSurfaceObject_t &outputSurfObj,
-        int x, int y,
-        int width, int height,
-        int layer_in)
-{
-    int sum = 0;
-
-    for (int k = -1; k < 2; k++)
-    {
-        if(x+k >= width || x+k < 0 ) // check border and skip self todo make better
-         //  return 0;
-           continue;
-
-        for (int l = -1; l < 2; l++)
-        {
-            if(y+l >= height || y+l < 0) // check border and skip self todo make better
-                continue;
-
-            // Read from input surface
-            //printf("---%s",pos);
-            float4 neighbor;
-            surf2Dread(&neighbor,  inputSurfObj, (x+k)*sizeof(float4), y+l);
-
-            // friendly
-            int neigh;
-            bool kill;
-            // todo make better
-            if(species=="x")
-            {
-                 sum += neighbor.x>=.33f ? 1 : 0;
-                 kill = neighbor.y>=.33f ? 1 : 0; // red kills green
-
-
-                // sum = 2;
-                // continue;
-
-
-            }
-            else if(species=="y")
-            {
-                 sum += neighbor.y>=.33f ? 1 : 0;
-               //  kill = neighbor.z>=.33f ? 1 : 0; // green kills blue
-            }
-            else
-            {
-                 sum += neighbor.z>=.33f ? 1 : 0;
-            }
-                 // neighbor = cell.w>=.33f ? 1 : 0;
 
 
 
-            // not friendly
-            if(kill){
-
-
-
-                // KILL
-                float4 rip = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-                surf2Dwrite(rip, inputSurfObj, (x+k)*sizeof(float4), y+l);
-                surf2Dwrite(rip, outputSurfObj, (x+k)*sizeof(float4), y+l);
-
-              //  sum = 4;
-                continue;
-
-            }
-
-
-        }
-    }
-    // Read from input surface
-
-    sum -= 1; // substarc self WAIT WE DONT KNOW IF SELF IS ALIVE WABAIÖKGJAÖKREJNAÖ
-    return sum;
-}
-
-
-
-
-__global__ void printGen(
-                        cudaSurfaceObject_t inputSurfObj,
-                        int width, int height)
+__global__ void printGen(cudaSurfaceObject_t inputSurfObj, int width, int height)
 {
     // Calculate surface coordinates
      int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -354,126 +294,50 @@ __global__ void printGen(
 ///////////////////////////////////////////////////////////////////////////////
 //! LAUNCHER
 ///////////////////////////////////////////////////////////////////////////////
-__host__ void launch_firstGen(cudaSurfaceObject_t  outputSurfObj, int width, int height)//cudaArray *cuda_image_array )
+__host__ void launch_firstGen(cudaSurfaceObject_t outputSurfObj, int width, int height)//cudaArray *cuda_image_array )
 {
-
-
-    // to ensure that any error returned by cudaPeekAtLastError() or cudaGetLastError()
-    // does not originate from calls prior to the kernel launch, one has to make sure
-    // that the runtime error variable is set to cudaSuccess just before the kernel launch,
-    // for example, by calling cudaGetLastError() just before the kernel launch
-    // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#error-checking
-
-    cudaError_t err;
-       err = cudaGetLastError();
-    if(err != cudaSuccess) {
-        std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
-        exit(-1);
-    }
-
-
+    CHECK_KERNEL();
 
     dim3 threadsperBlock(16, 16);
-   // dim3 numBlocks((unsigned int)ceil((float)IMAGE_COLS / threadsperBlock.x), IMAGE_ROWS);
-
-   dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
+    // dim3 numBlocks((unsigned int)ceil((float)IMAGE_COLS / threadsperBlock.x), IMAGE_ROWS);
+    dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
                   (height + threadsperBlock.y - 1) / threadsperBlock.y);
 
     firstGen<<<threadsperBlock, numBlocks>>>(outputSurfObj, width, height);
 
-    // Kernel launches do not return any error code,
-    // so cudaPeekAtLastError() or cudaGetLastError() must be called
-    // just after the kernel launch to retrieve any pre-launch errors.
-  //  cudaError_t err;
-    err = cudaGetLastError();
-    if(err != cudaSuccess) {
-        std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
-        exit(-1);
-    }
+    CHECK_KERNEL();
 }
 
-//extern "C"
 
-__host__ void launch_nextGen(
-                            cudaSurfaceObject_t inputSurfObj,
-                            cudaSurfaceObject_t outputSurfObj,
-                            int width, int height)
+__host__ void launch_nextGen(cudaSurfaceObject_t inputSurfObj, cudaSurfaceObject_t outputSurfObj, int width, int height)
 {
-
-
-    // to ensure that any error returned by cudaPeekAtLastError() or cudaGetLastError()
-    // does not originate from calls prior to the kernel launch, one has to make sure
-    // that the runtime error variable is set to cudaSuccess just before the kernel launch,
-    // for example, by calling cudaGetLastError() just before the kernel launch
-    // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#error-checking
-
-    cudaError_t err;
-       err = cudaGetLastError();
-    if(err != cudaSuccess) {
-        std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
-        exit(-1);
-    }
-
+    CHECK_KERNEL();
 
     dim3 threadsperBlock(16, 16);
-   // dim3 numBlocks((unsigned int)ceil((float)IMAGE_COLS / threadsperBlock.x), IMAGE_ROWS);
-
-   dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
+    // dim3 numBlocks((unsigned int)ceil((float)IMAGE_COLS / threadsperBlock.x), IMAGE_ROWS);
+    dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
                   (height + threadsperBlock.y - 1) / threadsperBlock.y);
-
 
     nextGen<<<threadsperBlock, numBlocks>>>(inputSurfObj, outputSurfObj, width, height );
 
-    // Kernel launches do not return any error code,
-    // so cudaPeekAtLastError() or cudaGetLastError() must be called
-    // just after the kernel launch to retrieve any pre-launch errors.
-  //  cudaError_t err;
-    err = cudaGetLastError();
-    if(err != cudaSuccess) {
-        std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
-        exit(-1);
-    }
+    CHECK_KERNEL();
 }
 
 
 __host__ void launch_printGen(cudaSurfaceObject_t  outputSurfObj, int width, int height,int layer)//cudaArray *cuda_image_array )
 {
 
+    CHECK_KERNEL();
 
-    // to ensure that any error returned by cudaPeekAtLastError() or cudaGetLastError()
-    // does not originate from calls prior to the kernel launch, one has to make sure
-    // that the runtime error variable is set to cudaSuccess just before the kernel launch,
-    // for example, by calling cudaGetLastError() just before the kernel launch
-    // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#error-checking
-
-    cudaError_t err;
-       err = cudaGetLastError();
-    if(err != cudaSuccess) {
-        std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
-        exit(-1);
-    }
-
- printf("\n------layer: %d----------------------------------------------------------------------\n", layer); // 95???
-
-
+    printf("\n------layer: %d----------------------------------------------------------------------\n", layer);
 
     dim3 threadsperBlock(16, 16);
-   // dim3 numBlocks((unsigned int)ceil((float)IMAGE_COLS / threadsperBlock.x), IMAGE_ROWS);
-
-   dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
+    dim3 numBlocks((width + threadsperBlock.x - 1) / threadsperBlock.x,
                   (height + threadsperBlock.y - 1) / threadsperBlock.y);
 
     printGen<<<threadsperBlock, numBlocks>>>(outputSurfObj, width, height);
 
-    // Kernel launches do not return any error code,
-    // so cudaPeekAtLastError() or cudaGetLastError() must be called
-    // just after the kernel launch to retrieve any pre-launch errors.
-  //  cudaError_t err;
-    err = cudaGetLastError();
-    if(err != cudaSuccess) {
-        std::cerr << "ERROR: " << cudaGetErrorString(err) << std::endl;
-        exit(-1);
-    }
+    CHECK_KERNEL();
 }
 
 

@@ -15,7 +15,7 @@
 cudaGraphicsResource *cuda_graphics_resource[2];
 cudaArray            *cuda_array[2];
 
-///////////////////////////////
+
 /// \brief setUpInterop
 /// \param surf
 /// \param texID
@@ -24,7 +24,8 @@ cudaArray            *cuda_array[2];
 /// \param layer
 /// \return
 ///
-cudaSurfaceObject_t setUpInterop(cudaSurfaceObject_t surf,GLuint texID,int width,int height,int layer){
+cudaSurfaceObject_t setUpInterop(cudaSurfaceObject_t surf,GLuint texID,int width,int height,int layer)
+{
 
 
     // register Image (texture) to CUDA Resource
@@ -109,15 +110,6 @@ void end_interop(){
     cudaFreeArray(cuda_array[1]);
 
 }
-
-
-
-
-
-
-
-
-
 
 
 
