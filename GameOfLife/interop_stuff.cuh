@@ -1,101 +1,72 @@
 #ifndef INTEROP_STUFF_CUH
 #define INTEROP_STUFF_CUH
 
-
-// CUDA and interop
+// CUDA and Interop
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
-#include "curand_kernel.h"
-#include "device_launch_parameters.h"
+#include <curand_kernel.h>
+#include <device_launch_parameters.h>
 #include <cudaGL.h>
 
-#include "cuda_stuff.cuh"
 
-
+// Vars needed during MainLoop
 cudaGraphicsResource *cuda_graphics_resource[2];
 cudaArray            *cuda_array[2];
 
-///////////////////////////////
-/// \brief setUpInterop
+///
+/// \brief   setUpInterop
+/// \details Make use of the interopabilty of CUDA and OpenGL and bind a
+///          OpenGL texture to a CUDA Surface Object
 /// \param surf
 /// \param texID
 /// \param width
 /// \param height
 /// \param layer
-/// \return
+/// \return Cuda Surface Object which is mapped to the OpenGL texture
 ///
-cudaSurfaceObject_t setUpInterop(cudaSurfaceObject_t surf,GLuint texID,int width,int height,int layer){
-
-
-    // register Image (texture) to CUDA Resource
-    // register gl image (texture) to CUDA Resource (cudaGraphicsResource)
-    // A new cudaGraphicsResource is created, and its address is placed in cudaTextureID.
-    cudaGraphicsGLRegisterImage( &cuda_graphics_resource[layer],
+cudaSurfaceObject_t setUpInterop(cudaSurfaceObject_t surf, GLuint texID, int width, int height, int layer)
+{
+    // CUDA Graphics Resource ////////////////////////////////////////////////////////////////////
+    // Register gl image (texture) to CUDA resource (cudaGraphicsResource)
+    cudaGraphicsGLRegisterImage(&cuda_graphics_resource[layer],
                                  texID,
                                  GL_TEXTURE_2D,
                                  CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
-    // map CUDA resource
+    // Map CUDA resource
     cudaGraphicsMapResources(1, &cuda_graphics_resource[layer], 0 );
 
-    // Bind the textures to their respective cuda arrays
-    cudaGraphicsSubResourceGetMappedArray( &cuda_array[layer]
-                                     , cuda_graphics_resource[layer]
-                                     , 0, 0 );
+    // Bind the texture through the graphics resource with its respective cuda array
+    cudaGraphicsSubResourceGetMappedArray(&cuda_array[layer],
+                                          cuda_graphics_resource[layer],
+                                          0, 0 );
 
-    //  cudaGraphicsUnmapResources(1, &m_cuda_graphicsResource[0], 0 );
-
-
-    // surface ////////////////////////////////////////////////////////////////////
-    // cudaBindSurfaceToArray is deprecitaed -> manually
+    // CUDA Surface Object ////////////////////////////////////////////////////////////////////
+    // cudaBindSurfaceToArray is deprecitaed -> do it manually
 
     // Specify surface
-    //Create a CUDA resource descriptor. This is used to get and set attributes of CUDA resources.
+    // Need CUDA resource descriptor to create surface object with "cudaCreateSurfaceObject()"
     struct cudaResourceDesc resDesc;
-    //Clear it with 0s so that some flags aren't arbitrarily left at 1s
+    // Init with Zeros
     memset(&resDesc, 0, sizeof(resDesc));
-    //Set the resource type to be an array for convenient processing in the CUDA kernel.
+    // Set Type to Array
     resDesc.resType = cudaResourceTypeArray;
 
-    // Create the surface objects
-    //Bind the new descriptor with the cuda array created earlier
+    // Create the surface object
+    // Bind descriptor with the cuda array that is the subresource of the graphics resource
     resDesc.res.array.array = cuda_array[layer];
-    //Create a new CUDA surface ID reference.
-    //This is really just an unsigned long long.
+    // Init Surface ID
     surf = 0;
-    //Create the surface with the given description.
+    // Create the surface with descriptor
     CHECK_CUDA(cudaCreateSurfaceObject(&surf, &resDesc));
 
-
-
-//        // DO NOT FUCKING TOUCH BEGIN ////////////////////////////////////////////
-//        // Allocate CUDA arrays in device memory
-//        cudaChannelFormatDesc channelDesc =
-//           cudaCreateChannelDesc(height, width, 0, 0, cudaChannelFormatKindUnsigned);
-//        // extent of the2X2X2 float cube
-//        //      Width in elements when referring to array memory, in bytes when referring to linear memory
-//      //  cudaExtent extent = make_cudaExtent(width*4, height, 2);
-//        cudaExtent extent = make_cudaExtent(width* sizeof(float4), height, 2);
-
-//        //allocate memory on the layered array.
-//        CHECK_CUDA(cudaMalloc3DArray(&cuda_array,
-//                                       &channelDesc,
-//                                       extent,
-//                                       //cudaArrayLayered
-//                                     cudaArraySurfaceLoadStore
-//                                     ));
-//        // DO NOT FUCKING TOUCH END ////////////////////////////////////////////
-
-
-       return surf;
-
+    return surf;
 }
 
-
-
-
-
-void end_interop(){
-
+///
+/// \brief end_interop
+/// \details cleans up vars
+void end_interop()
+{
     // unmap
     CHECK_CUDA(cudaGraphicsUnmapResources(1, &cuda_graphics_resource[0], 0));
     CHECK_CUDA(cudaGraphicsUnmapResources(1, &cuda_graphics_resource[1], 0));
@@ -107,17 +78,7 @@ void end_interop(){
     // Free device memory
     cudaFreeArray(cuda_array[0]);
     cudaFreeArray(cuda_array[1]);
-
 }
-
-
-
-
-
-
-
-
-
 
 
 
