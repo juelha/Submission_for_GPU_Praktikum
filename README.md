@@ -169,4 +169,4 @@ Nethertheless, I learned a lot about GPU-Programming which I will be able to use
 
 ![[https://knowyourmeme.com/photos/917498-boardroom-suggestion](https://knowyourmeme.com/photos/917498-boardroom-suggestion)](images/meme.gif)
 
-[https://knowyourmeme.com/photos/917498-boardroom-suggestion](https://knowyourmeme.com/photos/917498-boardroom-suggestion)
+[source](https://knowyourmeme.com/photos/917498-boardroom-suggestion)
