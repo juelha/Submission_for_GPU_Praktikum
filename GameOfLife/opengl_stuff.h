@@ -1,31 +1,21 @@
 #ifndef OPENGL_STUFF_H
 #define OPENGL_STUFF_H
 
-// OpenGL Graphics includes
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-// includes, system
-#include <iostream>
-
 // custom written for readability
 #include "shader_stuff.h"
 
-
-// variables /////////////////
+// variables
 GLFWwindow* window;
-
-GLFWwindow* getWindow() {
-  return  window;
-}
+GLFWwindow* getWindow(){ return window;}
 
 unsigned int vboID;
 unsigned int vaoID;
-unsigned int eboID; // element.. used for indexed drawing
+unsigned int eboID; // used for indexed drawing
 unsigned int shaderProgram;
 unsigned uniform_sampler_ourTexture;
 
-float vertices[] = {
+float vertices[] =
+{
     // positions          // colors           // texture coords
      1.0f,  1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
      1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 0.0f,   1.0f, 0.0f,   // bottom right
@@ -34,17 +24,23 @@ float vertices[] = {
 };
 
 
-unsigned int indices[] = {  // note that we start from 0!
+unsigned int indices[] =
+{
+    // note that we start from 0!
      0, 1, 3,  // first triangle
      1, 2, 3   // second triangle
 };
 
-// functions
-void CHECK_ERROR_GL() {
+///
+/// \brief CHECK_ERROR_GL
+/// \details Checking for GL-related errors
+///
+void CHECK_ERROR_GL()
+{
     GLenum err = glGetError();
-    if(err != GL_NO_ERROR) {
-      //  std::cerr << "GL Error: " << gluErrorString(err) << std::endl;
-        std::cerr << "GL Error: "  << std::endl;
+    if(err != GL_NO_ERROR)
+    {
+        std::cerr << "GL Error!"  << std::endl;
         exit(-1);
     }
 }
@@ -60,11 +56,12 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 /// \details configuring the parameters of an OpenGL texture
 /// \note    data, the last entry in glTexImage2D, must be a nullpointer!
 ///          the type specified must match with Cuda Surface Object
-///          float, rgba
+///          float4 <-> rgba
 /// \param   tex  the texture to be configured
 /// \return
 ///
-GLuint config_tex(GLuint tex, int width, int height){
+GLuint config_tex(GLuint tex, int width, int height)
+{
     glGenTextures(1, &tex);
 
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -75,7 +72,6 @@ GLuint config_tex(GLuint tex, int width, int height){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_BORDER);
 
-        ///glTexImage2D specifies the two-dimensional texture for the texture object bound to the current texture unit, specified with glActiveTexture.
         glTexImage2D(GL_TEXTURE_2D, 0,GL_RGBA32F, width,height, 0,  GL_RGBA, GL_FLOAT, NULL);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -108,8 +104,10 @@ int checkTex(GLuint *texID,int width, int height)
     glBindTexture(GL_TEXTURE_2D, 0);
 
     bool fail = false;
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++) {
+    for (int i = 0; i < width; i++)
+    {
+        for (int j = 0; j < height; j++)
+        {
             printf("%f ", data[i * width + j]);
             if(data[i * width + j] != 255.0f || data[i] != 0.0f)
             {
@@ -122,8 +120,6 @@ int checkTex(GLuint *texID,int width, int height)
     delete [] data;
     return 0;
 }
-
-
 
 
 ///
@@ -139,16 +135,18 @@ int init_opengl()
     // what option we want to configure
     //  second argument is an integer that sets the value of our option.
     // Version of opengl we wanna use: find current install on linux w $ glxinfo
-   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
-   // elling GLFW we want to use the core-profile means we'll get access to a smaller subset of OpenGL features without backwards-compatible features we no longer need.
-   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-   //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
+    // elling GLFW we want to use the core-profile means we'll get access to a smaller subset of OpenGL features without backwards-compatible features we no longer need.
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-   // create window obj
+    // create window obj
     // A window and its OpenGL or OpenGL ES context are created with
-     // glfwCreateWindow, which returns a handle to the created window object. For example
-    window = glfwCreateWindow(800, 600, "My Title", NULL, NULL);
+    // glfwCreateWindow, which returns a handle to the created window object. For example
+   // window = glfwCreateWindow(800, 600, "Game Of Life", glfwGetPrimaryMonitor(), NULL);
+    window = glfwCreateWindow(800, 600, "Game Of Life", NULL, NULL);
+
 
     if (window == NULL)
     {
@@ -177,14 +175,15 @@ int init_opengl()
     // register a callback function on the window that gets called each time the window is resized
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-
-
     std::cerr << "OPENGL SUCCESSFULLY INITIALIZED" << std::endl;
 
     return 0;
 }
 
-
+///
+/// \brief setUp_rendering
+/// \return
+///
 int setUp_rendering()
 {
 
@@ -195,7 +194,7 @@ int setUp_rendering()
     uniform_sampler_ourTexture = glGetUniformLocation(shaderProgram, "ourTexture");
     check_shaderProgram(shaderProgram);
 
-    // vbo & VAO & ebo/////////////////////////////////////////7
+    // vbo & VAO & ebo /////////////////////////////////////////
     glGenVertexArrays(1, &vaoID);
     glGenBuffers(1, &vboID);
     glGenBuffers(1, &eboID);
@@ -231,21 +230,8 @@ int setUp_rendering()
     // unbind
     // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    // remember: do NOT unbind the EBO while a VAO is active as the bound element buffer object IS stored in the VAO; keep the EBO bound.
-     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-  //  glBindVertexArray(0);
-
-    // uncomment this call to draw in wireframe polygons.
-   // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-
-
 
     return 0;
-
 }
 
 
@@ -270,8 +256,6 @@ void rendering(GLuint texIDhere)
 
     glfwSwapBuffers(window);
     glfwPollEvents();
-
-
 }
 
 ///
@@ -287,10 +271,7 @@ void end_rendering()
     glDeleteProgram(shaderProgram);
     CHECK_ERROR_GL();
     glfwTerminate();
-
 }
-
-
 
 
 #endif // OPENGL_STUFF_H

@@ -2,30 +2,31 @@
 #include "opengl_stuff.h"
 #include "cuda_stuff.cuh"
 #include "interop_stuff.cuh"
+#include "kernel_stuff.cuh"
 
 // resolution
 const int height =128;
 const int width = 128;
 
 
-int main(int argc, char** argv)
+int main()
 {
-    // Setting up OpenGL ////////////////////////////////////////
+    // Set up OpenGL ////////////////////////////////////////
     setUp_rendering();
     GLuint texID[2];
     texID[0] = config_tex(texID[0],width,height);
     texID[1] = config_tex(texID[1],width,height);
 
-    // Setting up Cuda ///////////////////////////////////////////
+    // Set up Cuda ///////////////////////////////////////////
     initCUDA();
     cudaSurfaceObject_t surfObj[2];
     surfObj[0] = setUpInterop(surfObj[0],texID[0],width,height,0);
     surfObj[1] = setUpInterop(surfObj[1],texID[1],width,height,1);
 
-    // Setting up first gen /////////////////////////////////////////
+    // Set up first Generation /////////////////////////////////////////
     CHECK_CUDA(cudaDeviceSynchronize());
-    launch_firstGen(surfObj[0],width,height);
-
+    bool extra = 1;
+    launch_firstGen(surfObj[0],width,height,extra);
 
     // RENDERING LOOP ////////////////////////////////////////////////
     int i = 0;
@@ -39,23 +40,19 @@ int main(int argc, char** argv)
 
         rendering(texID[i%2]);
 
-        launch_nextGen(surfObj[i%2],surfObj[(i+1)%2],width,height);
+        launch_nextGen(surfObj[i%2], surfObj[(i+1)%2], width, height, extra);
         i++;
-
-   }
+    }
 
      //END ///////////////////////////////////////////////////////////////////////
     end_interop();
     // Destroy surface objects
     cudaDestroySurfaceObject(surfObj[0]);
     cudaDestroySurfaceObject(surfObj[1]);
-
-    //Disable the use of 2D textures.
-  //  glDisable(GL_TEXTURE_2D);
     glDeleteTextures(2, texID);
     end_rendering();
-   CHECK_CUDA(cudaDeviceSynchronize());
-   CHECK_CUDA(cudaDeviceReset());
+    CHECK_CUDA(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaDeviceReset());
 
     return 0;
 }
