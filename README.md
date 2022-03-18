@@ -72,9 +72,9 @@ Given the rules that a
 - blue kills red
 - green kills blue and red
 
-![Untitled](script%20e5444/Untitled.png)
+![Untitled](images/gol1.png)
 
-![Untitled](script%20e5444/Untitled%201.png)
+![Untitled](images/gol2.png)
 
 A pattern that is recognizable from the original Game of Life is the “tub” as well as the “barge”, mostly appearing in the red species. 
 
@@ -109,7 +109,7 @@ We can access our Cuda Arrays by binding them to a *Cuda Surface Object* each, a
 
 Thankfully, the binding of the Cuda Arrays needs to be done only once before the Main Loop.
 
-![fig. 1 Flowchart explaining **`setUpInterop()`** ](script%20e5444/Untitled%202.png)
+![fig. 1 Flowchart explaining **`setUpInterop()`** ](images/flowchart1.png)
 
 fig. 1 Flowchart explaining **`setUpInterop()`** 
 
@@ -132,7 +132,7 @@ while(!glfwWindowShouldClose(getWindow()))
 }
 ```
 
-![fig. 2 Flowchart showcasing which layer to draw/read from in the Main loop](script%20e5444/Untitled%203.png)
+![fig. 2 Flowchart showcasing which layer to draw/read from in the Main loop](images/flowchart2.png)
 
 fig. 2 Flowchart showcasing which layer to draw/read from in the Main loop
 
@@ -167,6 +167,6 @@ Nethertheless, I learned a lot about GPU-Programming which I will be able to use
 
 ## Obligatory Meme
 
-![[https://knowyourmeme.com/photos/917498-boardroom-suggestion](https://knowyourmeme.com/photos/917498-boardroom-suggestion)](script%20e5444/gol.gif)
+![[https://knowyourmeme.com/photos/917498-boardroom-suggestion](https://knowyourmeme.com/photos/917498-boardroom-suggestion)](images/meme.gif)
 
 [https://knowyourmeme.com/photos/917498-boardroom-suggestion](https://knowyourmeme.com/photos/917498-boardroom-suggestion)
