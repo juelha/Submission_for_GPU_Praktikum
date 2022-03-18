@@ -25,16 +25,16 @@ int main()
 
     // Set up first Generation /////////////////////////////////////////
     CHECK_CUDA(cudaDeviceSynchronize());
-    bool extra = 1;
+    bool extra = 0;
     launch_firstGen(surfObj[0],width,height,extra);
 
-    // RENDERING LOOP ////////////////////////////////////////////////
+    // MAIN LOOP ////////////////////////////////////////////////////////
     int i = 0;
     while(!glfwWindowShouldClose(getWindow()))
     {
-        //Synchronize the CUDA surface with the OpenGL texture,
-        //so the texture has the same data as the newly written surface.
-        // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE.html#group__CUDART__DEVICE_1g10e20b05a95f638a4071a655503df25d
+        // Synchronize the CUDA surface with the OpenGL texture,
+        // so the texture has the same data as the newly written surface.
+        // source: https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE.html#group__CUDART__DEVICE_1g10e20b05a95f638a4071a655503df25d
         CHECK_CUDA(cudaDeviceSynchronize());
         launch_printGen(surfObj[i%2],width,height, i%2);
 
@@ -44,7 +44,7 @@ int main()
         i++;
     }
 
-     //END ///////////////////////////////////////////////////////////////////////
+    // END ///////////////////////////////////////////////////////////////////////
     end_interop();
     // Destroy surface objects
     cudaDestroySurfaceObject(surfObj[0]);

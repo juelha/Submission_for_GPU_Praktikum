@@ -144,7 +144,7 @@ int init_opengl()
     // create window obj
     // A window and its OpenGL or OpenGL ES context are created with
     // glfwCreateWindow, which returns a handle to the created window object. For example
-   // window = glfwCreateWindow(800, 600, "Game Of Life", glfwGetPrimaryMonitor(), NULL);
+    //window = glfwCreateWindow(800, 600, "Game Of Life", glfwGetPrimaryMonitor(), NULL);
     window = glfwCreateWindow(800, 600, "Game Of Life", NULL, NULL);
 
 
