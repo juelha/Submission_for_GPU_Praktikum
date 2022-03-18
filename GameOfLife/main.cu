@@ -25,7 +25,7 @@ int main()
 
     // Set up first Generation /////////////////////////////////////////
     CHECK_CUDA(cudaDeviceSynchronize());
-    bool extra = 0;
+    bool extra = 1;
     launch_firstGen(surfObj[0],width,height,extra);
 
     // MAIN LOOP ////////////////////////////////////////////////////////
